@@ -171,24 +171,30 @@ async def download_file_full(message, prefix="dl"):
 async def decrypt_via_bot(client, message):
     """Forward VPN file to decrypt bot and wait for decrypted response."""
     try:
-        notify("DECRYPT","Forwarding to decrypt bot...",Y)
-        # Forward to bot
-        await client.forward_messages(DECRYPT_BOT,message)
-        # Wait for bot response (max 30 sec)
-        async for response in client.iter_messages(DECRYPT_BOT,limit=5,timeout=30):
-            if response.media and hasattr(response.media,'document'):
-                fname,content=await download_file_full(response,"decrypted")
+        notify("DECRYPT", "Forwarding to decrypt bot...", Y)
+        # Forward the VPN file to the bot
+        await client.forward_messages(DECRYPT_BOT, message)
+        
+        # Wait a moment for the bot to process
+        await asyncio.sleep(3)
+        
+        # Check last 5 messages from bot (no timeout parameter)
+        async for response in client.iter_messages(DECRYPT_BOT, limit=5):
+            # Check if message has a document (decrypted file)
+            if response.media and hasattr(response.media, 'document'):
+                fname, content = await download_file_full(response, "decrypted")
                 if content:
-                    notify("DECRYPT",f"Decrypted: {fname}",G)
+                    notify("DECRYPT", f"Decrypted: {fname}", G)
                     return content
-            # Check if response has text with config
-            if response.text and len(response.text)>20:
-                notify("DECRYPT","Text response received",G)
+            # Check if response has text with config (alternative response)
+            if response.text and len(response.text) > 20:
+                notify("DECRYPT", "Text response received", G)
                 return response.text
-        notify("DECRYPT","No response from bot",Y)
+        
+        notify("DECRYPT", "No response from bot after waiting", Y)
         return None
     except Exception as e:
-        notify("DECRYPT ERROR",str(e),R)
+        notify("DECRYPT ERROR", str(e), R)
         return None
 
 # ── SESSION MANAGER ──────────────────────

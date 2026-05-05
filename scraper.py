@@ -454,4 +454,68 @@ def export_menu():
     elif ch=='2': export_logs("decrypted_configs.txt","DECRYPTED CONFIGS")
     elif ch=='3': export_logs("vpn_protocols.txt","VPN PROTOCOLS")
 
-async def scrape_me
+async def scrape_menu():
+    os.system('clear')
+    banner(current_user)
+    print(f"  {G}[1]{RES} Public Channel")
+    print(f"  {G}[2]{RES} Private Channel (Session + Decrypt)")
+    print(f"  {G}[3]{RES} Live Monitor (Real-Time)")
+    print(f"  {G}[0]{RES} Back\n")
+    ch=input(f"  {Y}[?]{RES} Choice: ").strip()
+    if ch=='1':
+        c=input(f"  {Y}[?]{RES} Channel: ").replace("@","").replace("t.me/","")
+        lim=int(input(f"  {Y}[?]{RES} Limit [50]: ") or "50")
+        cfgs=scrape_public(c,lim)
+        if cfgs: save_configs(cfgs)
+    elif ch=='2':
+        c=input(f"  {Y}[?]{RES} Channel: ")
+        lim=int(input(f"  {Y}[?]{RES} Limit [100]: ") or "100")
+        client=await get_client()
+        cfgs,dec=await scrape_private(client,c,lim)
+        await client.disconnect()
+    elif ch=='3':
+        c=input(f"  {Y}[?]{RES} Channel: ")
+        await live_monitor(c)
+    input(f"\n  {DIM}[Enter]{RES}")
+
+current_user=""
+
+async def main():
+    global current_user
+    if not await detect_login():
+        ok,me=await create_session()
+        if not ok:
+            print(f"  {R}[FATAL]{RES} Login required."); sys.exit(1)
+        current_user=me.first_name if me else ""
+    else:
+        client=TelegramClient(SESSION_FILE,API_ID,API_HASH)
+        await client.start()
+        me=await client.get_me()
+        current_user=me.first_name if me else ""
+        print(f"\n  {G}[WELCOME]{RES} {me.first_name} (@{me.username})")
+        await client.disconnect()
+        time.sleep(1.5)
+    
+    while True:
+        os.system('clear')
+        banner(current_user)
+        choice=main_menu()
+        if choice=='0':
+            pulse_glow(" GOODBYE! CONFIGS SAVED. ",3,0.3); break
+        elif choice=='1': await scrape_menu()
+        elif choice=='2': logs_menu()
+        elif choice=='3': export_menu()
+        elif choice=='4':
+            c=input(f"  {Y}[?]{RES} Channel: ")
+            await live_message_viewer(c)
+        elif choice=='5':
+            await logout_session()
+            ok,me=await create_session()
+            if ok: current_user=me.first_name if me else ""
+        else:
+            print(f"  {R}[!]{RES} Invalid"); time.sleep(0.5)
+
+if __name__=="__main__":
+    try: asyncio.run(main())
+    except KeyboardInterrupt: print(f"\n  {M}[STOPPED]{RES}\n"); sys.exit(0)
+PYEOF

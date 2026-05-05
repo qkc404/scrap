@@ -410,8 +410,7 @@ def export_logs(filename,title):
                 elif line and not line.startswith('-') and configs:
                     configs[-1]["content"]=line
         with open(out,"w",encoding="utf-8") as jf: json.dump(configs,jf,indent=2,ensure_ascii=False)
-        notify("EXPORT",f"{len(configs)}
- entries -> {out}",G)
+        notify("EXPORT",f"{len(configs)} entries -> {out}",G)
     except Exception as e:
         notify("EXPORT ERROR",str(e),R)
     input(f"\n  {DIM}[Enter]{RES}")

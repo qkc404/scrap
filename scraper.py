@@ -83,6 +83,7 @@ def load_recent():
         except: RECENT_CHANNELS=[]
 
 def save_recent(channel):
+    global RECENT_CHANNELS
     if channel not in RECENT_CHANNELS:
         RECENT_CHANNELS.insert(0,channel)
         RECENT_CHANNELS=RECENT_CHANNELS[:10]

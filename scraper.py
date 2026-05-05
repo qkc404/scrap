@@ -160,20 +160,35 @@ async def download_file_full(message, prefix="dl"):
 
 # ── DECRYPT VIA BOT ─────────────────────
 async def decrypt_via_bot(client, message):
+    """Forward VPN file to decrypt bot and WAIT for .txt response. Extract and save full content."""
     try:
         notify("DECRYPT","Forwarding to decrypt bot...",Y)
         await client.forward_messages(DECRYPT_BOT, message)
-        await asyncio.sleep(3)
-        async for response in client.iter_messages(DECRYPT_BOT, limit=5):
-            if response.media and hasattr(response.media,'document'):
-                fname,content=await download_file_full(response,"decrypted")
-                if content:
-                    notify("DECRYPT",f"Decrypted: {fname}",G)
-                    return content
-            if response.text and len(response.text)>50:
-                notify("DECRYPT","Text response received",G)
-                return response.text
-        notify("DECRYPT","No response from bot",Y)
+        notify("DECRYPT","Waiting for bot to process...",Y)
+        for attempt in range(12):
+            await asyncio.sleep(5)
+            async for response in client.iter_messages(DECRYPT_BOT, limit=3):
+                if response.media and hasattr(response.media,'document'):
+                    doc = response.media.document
+                    fname = ""
+                    for a in doc.attributes:
+                        if hasattr(a,'file_name') and a.file_name:
+                            fname = a.file_name
+                            break
+                    if fname.endswith('.txt') or doc.mime_type == "text/plain":
+                        fname,content = await download_file_full(response,"decrypted")
+                        if content and len(content) > 20:
+                            notify("DECRYPT",f"SUCCESS: {len(content)} chars",G)
+                            save_to_file([{"type":"DECRYPTED","config":content,"blessed":True,"channel":"decrypt_bot"}],"decrypted_configs.txt")
+                            return content
+                    if detect_vpn_file(fname):
+                        continue
+                if response.text and len(response.text) > 50:
+                    if any(x in response.text.lower() for x in ['ssh://','vmess://','vless://','trojan://','host:','sni:']):
+                        notify("DECRYPT",f"SUCCESS: {len(response.text)} chars",G)
+                        save_to_file([{"type":"DECRYPTED","config":response.text,"blessed":True,"channel":"decrypt_bot"}],"decrypted_configs.txt")
+                        return response.text
+        notify("DECRYPT","No response after 60s",Y)
         return None
     except Exception as e:
         notify("DECRYPT ERROR",str(e),R)

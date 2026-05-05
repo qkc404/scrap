@@ -626,5 +626,9 @@ async def main():
         else: print(f"  {R}[!]{RES} Invalid"); time.sleep(0.5)
 
 if __name__=="__main__":
-    try: asyncio.run(main())
-    except KeyboardInterrupt: print(f"\n  {M}[END]{RES}\n"); sys.exit(0)
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print(f"\n  {M}[STOPPED]{RES}\n")
+        # Instead of exiting, restart main
+        asyncio.run(main())

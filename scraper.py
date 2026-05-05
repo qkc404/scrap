@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
 # ============================================
-# SCRAPER 2.0 TG — SESSION-BASED (NO API INPUT)
-# Auto-Login via Pre-Built Session | Glitch+Glow
-# Public | Private+TXT | Live Monitor | All FX
+# SCRAPER 2.0 TG — SESSION-BASED | NO API INPUT
+# Created by Saeka Tojirp
+# Auto-Login | Glitch+Glow | Full Animation
+# TXT Deep Extract | Live Monitor | Scroll Logs
 # ============================================
 import re, os, sys, asyncio, requests, time, shutil, subprocess, importlib, json
 
@@ -24,7 +25,7 @@ from bs4 import BeautifulSoup
 from telethon import TelegramClient, events
 from telethon.tl.types import MessageMediaDocument
 
-# ── BUILT-IN API (NO USER INPUT) ─────────
+# ── BUILT-IN API ─────────────────────────
 API_ID = 2040
 API_HASH = "b18441a1ff607e10a989891a5462e627"
 SESSION_FILE = os.path.expanduser("~/.prvtspy_session")
@@ -33,7 +34,6 @@ SESSION_FILE = os.path.expanduser("~/.prvtspy_session")
 R='\033[91m'; G='\033[92m'; Y='\033[93m'; B='\033[94m'
 M='\033[95m'; C='\033[96m'; W='\033[97m'
 BOLD='\033[1m'; DIM='\033[2m'; RES='\033[0m'
-BG_G='\033[42m'; BG_R='\033[41m'; BG_C='\033[46m'
 
 def term_width():
     try: return shutil.get_terminal_size().columns
@@ -46,23 +46,17 @@ def spinner(text="Loading", sec=1.5):
     while time.time()<end:
         sys.stdout.write(f"\r  {C}{frames[i%6]} {RES}{text}...")
         sys.stdout.flush(); time.sleep(0.1); i+=1
-    sys.stdout.write("\r"+" "*30+"\r")
+    sys.stdout.write("\r"+" "*40+"\r")
 
 def progress_bar(current, total, label="Scraping"):
-    pct = (current*100)//total if total else 100
-    bar_len = 40
-    filled = (current*bar_len)//total if total else bar_len
+    if total<=0: return
+    pct = (current*100)//total
+    bar_len = 35
+    filled = (current*bar_len)//total
     bar = f"{G}{'█'*filled}{DIM}{'░'*(bar_len-filled)}{RES}"
     sys.stdout.write(f"\r  {label}: |{bar}| {pct}%")
     sys.stdout.flush()
     if current == total: sys.stdout.write("\n")
-
-def type_text(text, color=W, speed=0.02):
-    for c in text:
-        sys.stdout.write(f"{color}{c}{RES}")
-        sys.stdout.flush()
-        time.sleep(speed)
-    print()
 
 def pulse_glow(text, times=3, delay=0.3):
     for _ in range(times):
@@ -72,36 +66,46 @@ def pulse_glow(text, times=3, delay=0.3):
         sys.stdout.flush(); time.sleep(delay/2)
     sys.stdout.write(f"\r  {G}{BOLD}{text}{RES}\n")
 
-# ── GLITCH + GLOW BANNER ─────────────────
+def glide_text(text, delay=0.03):
+    for c in text:
+        sys.stdout.write(f"{G}{c}{RES}"); sys.stdout.flush(); time.sleep(delay)
+    print()
+
+def notify(icon, msg, color=G):
+    print(f"  [{color}{icon}{RES}] {msg}")
+
+# ── BANNER (Created by Saeka Tojirp) ──────
 def banner():
     os.system('clear')
     w = term_width()
     title = "SCRAPER 2.0 TG"
-    line = "═" * w
-    sub = "[ PUBLIC • PRIVATE • LIVE • TXT • SESSION‑BASED ]"
-    # Glitch red
-    sys.stdout.write(f"{R}{BOLD}  {title}  {RES}\n"); sys.stdout.flush(); time.sleep(0.05)
-    # Glitch blue
-    sys.stdout.write(f"{B}{BOLD}  {title}  {RES}\n"); sys.stdout.flush(); time.sleep(0.05)
-    # Glow green
+    creator = "Created by Saeka Tojirp"
+    # Glitch layers
+    sys.stdout.write(f"{R}{BOLD}  {title}  {RES}\n"); sys.stdout.flush(); time.sleep(0.04)
+    sys.stdout.write(f"{B}{BOLD}  {title}  {RES}\n"); sys.stdout.flush(); time.sleep(0.04)
     sys.stdout.write(f"{G}{BOLD}  {title}  {RES}\n"); sys.stdout.flush(); time.sleep(0.02)
-    print(f"{DIM}  {sub}{RES}")
-    print(f"{C}  {line}{RES}")
+    print(f"{DIM}  {creator}{RES}")
+    print(f"{C}  {'─'*w}{RES}")
     print()
 
-# ── PATTERNS ─────────────────────────────
+# ── PATTERNS (DEEP EXTRACT) ──────────────
 PATTERNS={
     "ssh":r"ssh://[^\s]+","vmess":r"vmess://[^\s]+","vless":r"vless://[^\s]+",
     "trojan":r"trojan://[^\s]+","ssr":r"ssr://[^\s]+","ss":r"ss://[^\s]+",
     "hysteria":r"hysteria://[^\s]+","tuic":r"tuic://[^\s]+",
-    "http":r"(?:server|proxy|host)\s*[:=]\s*[^\s]+",
+    "http_custom":r"(?:server|proxy|host)\s*[:=]\s*[^\s]+",
     "payload":r"(?:GET|POST|CONNECT|PUT|HEAD)\s+[^\s]+\s+HTTP/\d\.\d",
     "sni":r"(?:SNI|sni|bug)\s*[:=]\s*[^\s]+",
+    "run_app":r"[a-zA-Z0-9\-]+\.run\.app",
+    "ip_port":r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+",
 }
 
-def extract(text):
+def extract(text, scrape_mode="all"):
     found={}
     for n,p in PATTERNS.items():
+        if scrape_mode=="config" and n in ("sni","ip_port","payload","run_app"): continue
+        if scrape_mode=="text" and n in ("vmess","vless","trojan","ssh","ssr","ss"): continue
+        if scrape_mode=="runapp" and n!="run_app": continue
         m=re.findall(p,text,re.I)
         if m: found[n]=list(set(m))
     return found
@@ -117,13 +121,13 @@ def save_configs(configs,filename="blessed_configs.txt"):
             status="BLESSED" if c['blessed'] else "RAW"
             f.write(f"[{c['type'].upper()}] [{status}] {c['channel']}\n{c['config']}\n{'-'*40}\n")
 
-# ── TXT DOWNLOADER ───────────────────────
+# ── TXT DEEP EXTRACT ──────────────────────
 async def download_txt(message, prefix="temp"):
     if not message.media: return ""
     doc = getattr(message.media, 'document', None)
     if not doc: return ""
     is_txt = doc.mime_type == "text/plain" or any(
-        getattr(a, 'file_name', '').endswith('.txt')
+        getattr(a, 'file_name', '').endswith(('.txt','.log','.cfg','.conf'))
         for a in doc.attributes if hasattr(a, 'file_name'))
     if not is_txt: return ""
     fname = f"_{prefix}_dl.txt"
@@ -135,152 +139,164 @@ async def download_txt(message, prefix="temp"):
         return content
     except: return ""
 
-# ── SESSION CREATOR (FIRST-TIME) ──────────
-async def create_session():
-    """Create session if it does not exist (first run)"""
-    if os.path.exists(SESSION_FILE):
+# ── SESSION MANAGER ──────────────────────
+async def detect_login():
+    """Return True if session exists and is valid."""
+    if not os.path.exists(SESSION_FILE): return False
+    try:
+        client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
+        await client.start()
+        await client.disconnect()
         return True
-    print(f"\n  {Y}[!]{RES} No session found. Creating new session...")
+    except: return False
+
+async def create_session():
+    if await detect_login():
+        client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
+        await client.start()
+        me = await client.get_me()
+        print(f"\n  {G}[WELCOME]{RES} {me.first_name} (@{me.username})")
+        await client.disconnect()
+        return True
+    print(f"\n  {Y}[!]{RES} No session found. Login required (one-time only).")
     phone = input(f"  {Y}[?]{RES} Phone number (+63...): ").strip()
     if not phone:
-        print(f"  {R}[X]{RES} Phone number required for first-time setup.")
+        print(f"  {R}[X]{RES} Phone number required.")
         return False
     try:
         client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
         await client.start(phone)
         me = await client.get_me()
-        print(f"  {G}[OK]{RES} Session created! Logged in as: {me.first_name}")
+        print(f"  {G}[SUCCESS]{RES} Logged in as: {me.first_name}")
         await client.disconnect()
         return True
     except Exception as e:
         print(f"  {R}[ERROR]{RES} {e}")
-        if os.path.exists(SESSION_FILE):
-            os.remove(SESSION_FILE)
+        if os.path.exists(SESSION_FILE): os.remove(SESSION_FILE)
         return False
 
 async def get_client():
-    """Return authenticated client. Creates session if missing."""
-    if not os.path.exists(SESSION_FILE):
-        ok = await create_session()
-        if not ok:
-            sys.exit(1)
     client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
     await client.start()
     return client
 
+async def logout_session():
+    if os.path.exists(SESSION_FILE):
+        os.remove(SESSION_FILE)
+        print(f"  {G}[OK]{RES} Session removed.")
+    else:
+        print(f"  {DIM}No session to remove.{RES}")
+
 # ── PUBLIC MODE ──────────────────────────
-def scrape_public(channel, limit=50):
-    print(f"  {C}[*]{RES} Public scraping: @{channel}")
-    spinner("Connecting to public feed", 1.2)
+def scrape_public(channel, limit=50, scrape_mode="all"):
+    notify("PUBLIC", f"Scraping @{channel}", C)
+    spinner("Connecting", 1.0)
     url=f"https://t.me/s/{channel}"
-    configs=[]; offset=0; total_found=0
+    configs=[]; offset=0
     while len(configs)<limit:
         try:
             r=requests.get(f"{url}?before={offset}" if offset else url,timeout=10)
             soup=BeautifulSoup(r.text,'html.parser')
             msgs=soup.find_all('div',class_='tgme_widget_message_text')
             if not msgs: break
-            for idx,msg in enumerate(msgs):
+            for msg in msgs:
                 if len(configs)>=limit: break
                 text=msg.get_text(separator='\n')
-                found=extract(text)
+                found=extract(text,scrape_mode)
                 for t,items in found.items():
                     for item in items:
                         if len(configs)>=limit: break
                         blessed=bless(t,item)
                         configs.append({"type":t,"config":item,"blessed":blessed,"channel":channel})
-                        total_found+=1
                         progress_bar(len(configs),limit)
                         st=f"{G}BLESSED{RES}" if blessed else f"{Y}RAW{RES}"
-                        print(f"\n  [{C}{t.upper():10}{RES}] [{st}] {item[:60]}...")
+                        notify(t.upper(), item[:55], C)
             last=msgs[-1].parent.get('data-post','')
             offset=int(last.split('/')[-1]) if last else None
             if not offset: break
         except Exception as e:
-            print(f"\n  {R}[!]{RES} {e}"); break
-    print(f"\n  {G}[DONE]{RES} {len(configs)} configs extracted\n")
+            notify("ERROR", str(e), R); break
+    notify("DONE", f"{len(configs)} configs extracted", G)
     return configs
 
-# ── PRIVATE MODE (SESSION-BASED + TXT) ──
-async def scrape_private(channel, limit=100):
-    print(f"  {C}[*]{RES} Private scraping: {channel}")
-    spinner("Authenticating with saved session", 1.5)
+# ── PRIVATE MODE ─────────────────────────
+async def scrape_private(channel, limit=100, scrape_mode="all"):
+    notify("PRIVATE", f"Scraping {channel}", C)
+    spinner("Authenticating", 1.2)
     client = await get_client()
     configs=[]
     try:
-        msg_count=0
         async for msg in client.iter_messages(channel, limit=limit):
-            msg_count+=1
             text=msg.text or ""
-            # Download and parse .txt attachments
             txt_content = await download_txt(msg)
             if txt_content:
                 text += "\n" + txt_content
-                print(f"  {G}[TXT]{RES} Extracted text from attached file")
+                notify("TXT", "Deep file content extracted", G)
             if not text.strip(): continue
-            found=extract(text)
+            found=extract(text,scrape_mode)
             for t,items in found.items():
                 for item in items:
                     blessed=bless(t,item)
                     configs.append({"type":t,"config":item,"blessed":blessed,"channel":channel})
                     st=f"{G}BLESSED{RES}" if blessed else f"{Y}RAW{RES}"
-                    print(f"  [{C}{t.upper():10}{RES}] [{st}] {item[:60]}...")
-        print(f"  {DIM}Scanned {msg_count} messages.{RES}")
+                    notify(t.upper(), item[:55], C)
     except Exception as e:
-        print(f"  {R}[!]{RES} {e}")
+        notify("ERROR", str(e), R)
     await client.disconnect()
-    print(f"\n  {G}[DONE]{RES} {len(configs)} configs extracted\n")
+    notify("DONE", f"{len(configs)} configs extracted", G)
     return configs
 
 # ── LIVE MONITOR ─────────────────────────
 async def live_monitor(channel):
-    print(f"  {C}[*]{RES} Live monitor: {channel}")
-    spinner("Starting live mode", 1.5)
+    notify("LIVE", f"Watching {channel}", G)
+    spinner("Starting live mode", 1.2)
     client = await get_client()
-    print(f"  {G}[LIVE]{RES} Watching for new messages... (CTRL+C to stop)\n")
     @client.on(events.NewMessage(chats=channel))
     async def handler(event):
         text=event.message.text or ""
         txt_content = await download_txt(event.message, prefix="live")
-        if txt_content:
-            text += "\n" + txt_content
-            print(f"  {G}[TXT]{RES} Live attachment extracted")
+        if txt_content: text += "\n" + txt_content
         if not text.strip(): return
-        found=extract(text)
+        found=extract(text,"all")
         for t,items in found.items():
             for item in items:
                 blessed=bless(t,item)
                 st=f"{G}BLESSED{RES}" if blessed else f"{Y}RAW{RES}"
-                print(f"  [{G}LIVE{RES}] [{C}{t.upper():10}{RES}] [{st}] {item[:60]}...")
+                notify(f"LIVE {t.upper()}", item[:55], G)
                 save_configs([{"type":t,"config":item,"blessed":blessed,"channel":channel}])
     await client.run_until_disconnected()
 
-# ── MENU ─────────────────────────────────
-def menu():
-    print(f"  {G}[1]{RES} Public Channel Scraper")
-    print(f"  {G}[2]{RES} Private Channel Scraper (Session + TXT)")
-    print(f"  {G}[3]{RES} Live Monitor (Real‑Time + TXT)")
-    print(f"  {G}[4]{RES} View Saved Configs")
-    print(f"  {G}[5]{RES} Export Saved Configs to JSON")
-    print(f"  {G}[6]{RES} Change Session (Re‑login)")
-    print(f"  {G}[0]{RES} Exit\n")
-    return input(f"  {Y}[?]{RES} Choice: ").strip()
-
-def view_saved():
-    f="blessed_configs.txt"
-    if os.path.exists(f):
-        with open(f) as fp: lines=fp.readlines()
-        count=sum(1 for l in lines if l.startswith('['))
-        print(f"  {G}[+]{RES} {count} configs saved\n")
-        for l in lines[-25:]: print(f"  {DIM}{l.rstrip()[:100]}{RES}")
-    else: print(f"  {DIM}No saved configs yet.{RES}")
-    input(f"\n  {DIM}[Enter]{RES}")
-
-def export_json():
+# ── SCROLLABLE LOG VIEWER ─────────────────
+def view_logs():
     f="blessed_configs.txt"
     if not os.path.exists(f):
-        print(f"  {R}[!]{RES} No configs to export.")
+        print(f"  {DIM}No saved configs yet.{RES}")
         input(f"\n  {DIM}[Enter]{RES}"); return
+    with open(f) as fp: lines=[l.strip() for l in fp if l.strip()]
+    if not lines:
+        print(f"  {DIM}Log file empty.{RES}")
+        input(f"\n  {DIM}[Enter]{RES}"); return
+    page=0; per_page=8; total_pages=(len(lines)+per_page-1)//per_page
+    while True:
+        os.system('clear')
+        print(f"  {C}{'═'*50}{RES}")
+        print(f"  {G}SAVED LOGS{RES}  (Page {page+1}/{total_pages})  [N]ext [P]rev [Q]uit")
+        print(f"  {C}{'═'*50}{RES}\n")
+        start=page*per_page; end=start+per_page
+        for i,line in enumerate(lines[start:end], start+1):
+            print(f"  {DIM}[{i}]{RES} {line[:90]}")
+        print()
+        cmd=input(f"  {Y}[?]{RES} ").strip().lower()
+        if cmd in ('n','next') and page<total_pages-1: page+=1
+        elif cmd in ('p','prev') and page>0: page-=1
+        elif cmd in ('q','quit'): break
+        else: pass
+
+def export_logs():
+    f="blessed_configs.txt"
+    if not os.path.exists(f):
+        print(f"  {R}[!]{RES} No configs to export."); input(f"\n  {DIM}[Enter]{RES}"); return
+    out=input(f"  {Y}[?]{RES} Export filename [export.json]: ").strip() or "export.json"
     configs=[]
     with open(f) as fp:
         lines=[l.strip() for l in fp if l.strip()]
@@ -291,50 +307,100 @@ def export_json():
         ctype=parts[0][1:-1] if parts else "unknown"
         status=parts[1] if len(parts)>1 else "RAW"
         configs.append({"type":ctype,"status":status,"config":body})
-    with open("export.json","w") as jf: json.dump(configs,jf,indent=2)
-    print(f"  {G}[OK]{RES} Exported to export.json")
+    with open(out,"w") as jf: json.dump(configs,jf,indent=2)
+    print(f"  {G}[OK]{RES} Exported to {out}")
     input(f"\n  {DIM}[Enter]{RES}")
 
-async def change_session():
-    if os.path.exists(SESSION_FILE):
-        os.remove(SESSION_FILE)
-        print(f"  {G}[OK]{RES} Old session removed.")
-    await create_session()
+# ── SCRAPE METHOD MANAGER ────────────────
+SCRAPE_METHODS = {"method":"all","description":"All config types"}
+
+def manage_methods():
+    global SCRAPE_METHODS
+    while True:
+        os.system('clear')
+        print(f"  {C}{'═'*50}{RES}")
+        print(f"  {G}SCRAPE METHOD MANAGER{RES}")
+        print(f"  {C}{'═'*50}{RES}\n")
+        print(f"  Current: {Y}{SCRAPE_METHODS['method']}{RES} - {DIM}{SCRAPE_METHODS['description']}{RES}\n")
+        print(f"  {G}[1]{RES} All (configs + text + URLs)")
+        print(f"  {G}[2]{RES} Configs only (vmess, vless, ssh, etc.)")
+        print(f"  {G}[3]{RES} Text only (payloads, SNI, hosts)")
+        print(f"  {G}[4]{RES} run.app URLs only")
+        print(f"  {G}[5]{RES} TXT files only (deep extract)")
+        print(f"  {G}[0]{RES} Back\n")
+        ch=input(f"  {Y}[?]{RES} Choice: ").strip()
+        if ch=='1': SCRAPE_METHODS={"method":"all","description":"All config types"}
+        elif ch=='2': SCRAPE_METHODS={"method":"config","description":"Configs only"}
+        elif ch=='3': SCRAPE_METHODS={"method":"text","description":"Text only"}
+        elif ch=='4': SCRAPE_METHODS={"method":"runapp","description":"run.app URLs only"}
+        elif ch=='5': SCRAPE_METHODS={"method":"txt","description":"TXT files only (deep extract)"}
+        elif ch=='0': break
+        print(f"  {G}[OK]{RES} Method updated.\n")
+
+# ── MAIN MENU ──────────────────────────
+def menu():
+    print(f"  {G}[1]{RES} Scrape Telegram Channels")
+    print(f"  {G}[2]{RES} View Saved Logs")
+    print(f"  {G}[3]{RES} Export Saved Logs")
+    print(f"  {G}[4]{RES} Change Scrape Method ({Y}{SCRAPE_METHODS['method']}{RES})")
+    print(f"  {G}[5]{RES} Change Session Token (Logout/Login)")
+    print(f"  {G}[0]{RES} Exit\n")
+    return input(f"  {Y}[?]{RES} Choice: ").strip()
+
+async def scrape_menu():
+    os.system('clear')
+    banner()
+    print(f"  {G}[1]{RES} Public Channel")
+    print(f"  {G}[2]{RES} Private Channel (Session)")
+    print(f"  {G}[3]{RES} Live Monitor")
+    print(f"  {G}[0]{RES} Back\n")
+    ch=input(f"  {Y}[?]{RES} Choice: ").strip()
+    if ch=='1':
+        ch_name=input(f"  {Y}[?]{RES} Channel: ").replace("@","").replace("t.me/","")
+        lim=int(input(f"  {Y}[?]{RES} Limit [50]: ") or "50")
+        cfgs=scrape_public(ch_name,lim,SCRAPE_METHODS['method'])
+        if cfgs: save_configs(cfgs)
+    elif ch=='2':
+        ch_name=input(f"  {Y}[?]{RES} Channel: ")
+        lim=int(input(f"  {Y}[?]{RES} Limit [100]: ") or "100")
+        cfgs=await scrape_private(ch_name,lim,SCRAPE_METHODS['method'])
+        if cfgs: save_configs(cfgs)
+    elif ch=='3':
+        ch_name=input(f"  {Y}[?]{RES} Channel: ")
+        await live_monitor(ch_name)
     input(f"\n  {DIM}[Enter]{RES}")
 
 async def main():
-    # Ensure session exists on first run
-    if not os.path.exists(SESSION_FILE):
-        await create_session()
+    # Login once
+    if not await detect_login():
+        ok = await create_session()
+        if not ok:
+            print(f"  {R}[FATAL]{RES} Login required. Exiting.")
+            sys.exit(1)
+    else:
+        client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
+        await client.start()
+        me = await client.get_me()
+        print(f"\n  {G}[WELCOME]{RES} {me.first_name} (@{me.username})\n")
+        await client.disconnect()
+        time.sleep(1.5)
+    
     while True:
         banner()
         choice=menu()
-        if choice=="0":
+        if choice=='0':
             pulse_glow(" GOODBYE! CONFIGS SAVED. ", 3, 0.3)
             break
-        elif choice=="1":
-            ch=input(f"  {Y}[?]{RES} Channel: ").replace("@","").replace("t.me/","")
-            lim=int(input(f"  {Y}[?]{RES} Limit [50]: ") or "50")
-            cfgs=scrape_public(ch,lim)
-            if cfgs: save_configs(cfgs)
-            input(f"\n  {DIM}[Enter]{RES}")
-        elif choice=="2":
-            ch=input(f"  {Y}[?]{RES} Channel: ")
-            lim=int(input(f"  {Y}[?]{RES} Limit [100]: ") or "100")
-            cfgs=await scrape_private(ch,lim)
-            if cfgs: save_configs(cfgs)
-            input(f"\n  {DIM}[Enter]{RES}")
-        elif choice=="3":
-            ch=input(f"  {Y}[?]{RES} Channel: ")
-            await live_monitor(ch)
-        elif choice=="4":
-            view_saved()
-        elif choice=="5":
-            export_json()
-        elif choice=="6":
-            await change_session()
+        elif choice=='1': await scrape_menu()
+        elif choice=='2': view_logs()
+        elif choice=='3': export_logs()
+        elif choice=='4': manage_methods()
+        elif choice=='5':
+            await logout_session()
+            ok = await create_session()
+            if not ok: print(f"  {R}[!]{RES} Login failed."); time.sleep(1)
         else:
-            print(f"  {R}[!]{RES} Invalid choice"); time.sleep(1)
+            print(f"  {R}[!]{RES} Invalid choice"); time.sleep(0.5)
 
 if __name__=="__main__":
     try: asyncio.run(main())

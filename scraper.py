@@ -1,4 +1,3 @@
-pkg update -y && pkg upgrade -y && pkg install python python-pip wget curl -y && pip install telethon requests beautifulsoup4 -q && cat > scraper.py << 'PYEOF'
 #!/usr/bin/env python3
 # ============================================
 # SCRAPER 2.0 TG — ULTIMATE VPN CONFIG TOOL

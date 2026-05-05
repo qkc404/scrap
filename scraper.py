@@ -1,4 +1,3 @@
-pkg update -y && pkg upgrade -y && pkg install python python-pip wget curl -y && pip install telethon requests beautifulsoup4 -q && cat > scraper.py << 'PYEOF'
 #!/usr/bin/env python3
 # ============================================
 # SCRAPER 2.0 TG — BOT MODE (NO ACCOUNT)
@@ -412,3 +411,133 @@ def export_logs(filename,title):
                     configs[-1]["content"]=line
         with open(out,"w",encoding="utf-8") as jf: json.dump(configs,jf,indent=2,ensure_ascii=False)
         notify("EXPORT",f"{len(configs)}
+ entries -> {out}",G)
+    except Exception as e:
+        notify("EXPORT ERROR",str(e),R)
+    input(f"\n  {DIM}[Enter]{RES}")
+
+# ── MENUS ──────────────────────────────
+def main_menu():
+    print(f"  {G}[1]{RES} Scrape Telegram Channels")
+    print(f"  {G}[2]{RES} View Saved Logs")
+    print(f"  {G}[3]{RES} Export Saved Logs")
+    print(f"  {G}[4]{RES} Recent Channels")
+    print(f"  {G}[5]{RES} Live Message Viewer (Auto-Save + Decrypt)")
+    print(f"  {G}[6]{RES} Live Monitor (Auto-Scrape)")
+    print(f"  {G}[7]{RES} Change Bot Token")
+    print(f"  {G}[0]{RES} Exit\n")
+    return input(f"  {Y}[?]{RES} Choice: ").strip()
+
+async def scrape_menu():
+    os.system('clear')
+    banner(current_user)
+    print(f"  {G}[1]{RES} Public Channel")
+    print(f"  {G}[2]{RES} Private/Bot Channel (Decrypt VPN Files)")
+    if RECENT_CHANNELS:
+        print(f"\n  {M}Recent:{RES}")
+        for i,rc in enumerate(RECENT_CHANNELS[:5]):
+            print(f"  {G}[r{i+1}]{RES} {rc}")
+    print(f"\n  {G}[0]{RES} Back\n")
+    ch=input(f"  {Y}[?]{RES} Choice: ").strip()
+    if ch.startswith('r') and ch[1:].isdigit():
+        idx=int(ch[1:])-1
+        if 0<=idx<len(RECENT_CHANNELS):
+            ch_name=RECENT_CHANNELS[idx]; save_recent(ch_name)
+            lim=int(input(f"  {Y}[?]{RES} Limit [50]: ") or "50")
+            cfgs=scrape_public(ch_name,lim)
+            if cfgs: save_to_file(cfgs,"blessed_configs.txt")
+    elif ch=='1':
+        ch_name=input(f"  {Y}[?]{RES} Channel: ").replace("@","").replace("t.me/","")
+        save_recent(ch_name)
+        lim=int(input(f"  {Y}[?]{RES} Limit [50]: ") or "50")
+        cfgs=scrape_public(ch_name,lim)
+        if cfgs: save_to_file(cfgs,"blessed_configs.txt")
+    elif ch=='2':
+        ch_name=input(f"  {Y}[?]{RES} Channel: "); save_recent(ch_name)
+        lim=int(input(f"  {Y}[?]{RES} Limit [100]: ") or "100")
+        client=await get_bot_client()
+        cfgs,dec=await scrape_private(client,ch_name,lim)
+        if cfgs: save_to_file(cfgs,"blessed_configs.txt")
+        if dec: save_to_file(dec,"decrypted_configs.txt")
+        await client.disconnect()
+    input(f"\n  {DIM}[Enter]{RES}")
+
+current_user=""
+
+async def main():
+    global current_user
+    load_recent()
+    
+    # Bot login
+    print(f"\n  {C}[*]{RES} Authenticating via bot token...")
+    token = get_bot_token()
+    if not token:
+        print(f"  {R}[FATAL]{RES} Bot token required. Get one from @BotFather")
+        sys.exit(1)
+    
+    try:
+        client = TelegramClient(SESSION_FILE, API_ID, API_HASH)
+        await client.start(bot_token=token)
+        me = await client.get_me()
+        current_user = f"@{me.username}" if me.username else me.first_name
+        print(f"  {G}[BOT ONLINE]{RES} {current_user}")
+        await client.disconnect()
+        time.sleep(1.5)
+    except Exception as e:
+        print(f"  {R}[ERROR]{RES} Invalid token: {e}")
+        os.remove(TOKEN_FILE)
+        sys.exit(1)
+    
+    while True:
+        os.system('clear'); banner(current_user); choice=main_menu()
+        if choice=='0': pulse_glow(" GOODBYE! ",3,0.3); break
+        elif choice=='1': await scrape_menu()
+        elif choice=='2':
+            os.system('clear'); banner(current_user)
+            print(f"  {G}[1]{RES} Blessed Configs\n  {G}[2]{RES} Decrypted\n  {G}[3]{RES} VPN Protocols\n  {G}[4]{RES} Live TXT Saves\n  {G}[0]{RES} Back\n")
+            v=input(f"  {Y}[?]{RES} ").strip()
+            if v=='1': view_saved("blessed_configs.txt","BLESSED CONFIGS")
+            elif v=='2': view_saved("decrypted_configs.txt","DECRYPTED")
+            elif v=='3': view_saved("vpn_protocols.txt","VPN PROTOCOLS")
+            elif v=='4': view_saved("live_txt_saves.txt","LIVE TXT SAVES")
+        elif choice=='3':
+            os.system('clear'); banner(current_user)
+            print(f"  {G}[1]{RES} Blessed\n  {G}[2]{RES} Decrypted\n  {G}[3]{RES} VPN Protocols\n  {G}[4]{RES} Live TXT\n  {G}[0]{RES} Back\n")
+            e=input(f"  {Y}[?]{RES} ").strip()
+            if e=='1': export_logs("blessed_configs.txt","BLESSED")
+            elif e=='2': export_logs("decrypted_configs.txt","DECRYPTED")
+            elif e=='3': export_logs("vpn_protocols.txt","VPN PROTOCOLS")
+            elif e=='4': export_logs("live_txt_saves.txt","LIVE TXT")
+        elif choice=='4':
+            os.system('clear'); banner(current_user)
+            if RECENT_CHANNELS:
+                for i,rc in enumerate(RECENT_CHANNELS): print(f"  {G}[{i+1}]{RES} {rc}")
+            else: print(f"  {DIM}No recent.{RES}")
+            input(f"\n  {DIM}[Enter]{RES}")
+        elif choice=='5':
+            c=input(f"  {Y}[?]{RES} Channel: ").strip(); save_recent(c)
+            try:
+                await live_message_viewer(c)
+            except KeyboardInterrupt:
+                pass
+        elif choice=='6':
+            c=input(f"  {Y}[?]{RES} Channel: ").strip(); save_recent(c)
+            try:
+                await live_monitor(c)
+            except KeyboardInterrupt:
+                pass
+        elif choice=='7':
+            if os.path.exists(TOKEN_FILE): os.remove(TOKEN_FILE)
+            if os.path.exists(SESSION_FILE): os.remove(SESSION_FILE)
+            print(f"  {G}[OK]{RES} Token removed. Restarting...")
+            time.sleep(1)
+            asyncio.run(main())
+        else:
+            print(f"  {R}[!]{RES} Invalid"); time.sleep(0.5)
+
+if __name__=="__main__":
+    try:
+        asyncio.run(main())
+    except KeyboardInterrupt:
+        print(f"\n  {M}[END]{RES}\n")
+        sys.exit(0)

@@ -1,10 +1,9 @@
+pkg update -y && pkg upgrade -y && pkg install python python-pip wget curl -y && pip install telethon requests beautifulsoup4 -q && cat > scraper.py << 'PYEOF'
 #!/usr/bin/env python3
 # ============================================
-# SCRAPER 2.0 TG — ULTIMATE VPN CONFIG TOOL
+# SCRAPER 2.0 TG — FINAL VERSION
 # Created by Saeka Tojirp
-# Full TXT Extract | VPN Formats | Auto-Decrypt
-# Live Messages | Session-Based | Full Control
-# Fixed Export | Smooth Animations | Error Handler
+# Live Auto-Save TXT | Auto-Decrypt VPN | Full TG Actions
 # ============================================
 import re, os, sys, asyncio, requests, time, shutil, subprocess, importlib, json
 from datetime import datetime
@@ -26,6 +25,9 @@ from bs4 import BeautifulSoup
 from telethon import TelegramClient, events, functions, types
 from telethon.tl.types import MessageMediaDocument
 from telethon.errors import FloodWaitError, SessionPasswordNeededError
+from telethon.tl.functions.messages import SendMessageRequest, ForwardMessagesRequest
+from telethon.tl.functions.channels import JoinChannelRequest, LeaveChannelRequest
+from telethon.tl.functions.account import UpdateProfileRequest, UpdateUsernameRequest
 
 API_ID=2040
 API_HASH="b18441a1ff607e10a989891a5462e627"
@@ -39,28 +41,13 @@ BOLD='\033[1m'; DIM='\033[2m'; RES='\033[0m'
 BG_G='\033[42m'; BG_R='\033[41m'; BG_C='\033[46m'; BG_M='\033[45m'
 
 def tw(): return shutil.get_terminal_size().columns if hasattr(shutil,'get_terminal_size') else 60
-
-# ── SMOOTH ANIMATIONS ──────────────────
-def typewrite(text, color=W, speed=0.015):
-    for c in text:
-        sys.stdout.write(f"{color}{c}{RES}"); sys.stdout.flush(); time.sleep(speed)
-
-def spinner(text="Processing", sec=1.5):
+def spinner(text="Processing", sec=1.2):
     frames=['◜','◠','◝','◞','◡','◟']
     end=time.time()+sec; i=0
     while time.time()<end:
         sys.stdout.write(f"\r  {C}{frames[i%6]} {RES}{text}...")
         sys.stdout.flush(); time.sleep(0.08); i+=1
     sys.stdout.write("\r"+" "*50+"\r")
-
-def progress_bar(current, total, label="Progress", width=30):
-    if total<=0: return
-    pct=(current*100)//total
-    filled=(current*width)//total
-    bar=f"{G}{'█'*filled}{DIM}{'░'*(width-filled)}{RES}"
-    sys.stdout.write(f"\r  {label}: |{bar}| {pct}% ")
-    sys.stdout.flush()
-    if current==total: sys.stdout.write("\n")
 
 def pulse_glow(text, times=3, delay=0.3):
     for _ in range(times):
@@ -69,12 +56,11 @@ def pulse_glow(text, times=3, delay=0.3):
     sys.stdout.write(f"\r  {G}{BOLD}{text}{RES}\n")
 
 def notify(icon, msg, color=G):
-    timestamp=datetime.now().strftime("%H:%M:%S")
-    print(f"  [{DIM}{timestamp}{RES}] [{color}{icon}{RES}] {msg}")
+    ts=datetime.now().strftime("%H:%M:%S")
+    print(f"  [{DIM}{ts}{RES}] [{color}{icon}{RES}] {msg}")
 
 def banner(username=""):
     os.system('clear')
-    w=tw()
     title="SCRAPER 2.0 TG"
     creator="Created by Saeka Tojirp"
     sys.stdout.write(f"\n{R}{BOLD}  {title}{RES}\n"); sys.stdout.flush(); time.sleep(0.03)
@@ -82,47 +68,14 @@ def banner(username=""):
     sys.stdout.write(f"{G}{BOLD}  {title}{RES}\n"); sys.stdout.flush(); time.sleep(0.02)
     if username: print(f"{C}  Hi! {username}{RES}")
     print(f"{DIM}  {creator}{RES}")
-    print(f"{C}  {'─'*w}{RES}")
+    print(f"{C}  {'─'*tw()}{RES}")
 
-# ── VPN FILE EXTENSIONS ──────────────────
-VPN_EXTENSIONS = (
-    '.ehi','.ehil','.hc','.npvt','.npvtsub','.dark','.v2','.sip','.hat',
-    '.nm','.tnl','.slipnet','.tls','.lnk','.mina','.ssc',
-    '.aura','.bcl','.bee','.btv','.ena','.vel','.eta','.fix','.glory',
-    '.marvs','.nur','.md','.mdvpn','.ost','.osv','.ry','.t20','.tik',
-    '.tsm','.tx','.ulti','.ultra','.vlx','.wolf','.mmt',
-    '.tcx','.7net','.ihome','.xhypher','.izph','.osp','.bshield','.enz',
-    '.maya','.roy','.ar',
-    '.apnalite','.bdnet','.hxt','.4ulite','.fnf','.omanova','.ursa','.hsome',
-    '.stk','.ziv','.wyr','.int','.eut'
-)
+# ── VPN DETECTION ──────────────────────
+VPN_EXTENSIONS = ('.ehi','.ehil','.hc','.npvt','.npvtsub','.dark','.v2','.sip','.hat','.nm','.tnl','.slipnet','.tls','.lnk','.mina','.ssc','.aura','.bcl','.bee','.btv','.ena','.vel','.eta','.fix','.glory','.marvs','.nur','.md','.mdvpn','.ost','.osv','.ry','.t20','.tik','.tsm','.tx','.ulti','.ultra','.vlx','.wolf','.mmt','.tcx','.7net','.ihome','.xhypher','.izph','.osp','.bshield','.enz','.maya','.roy','.ar','.apnalite','.bdnet','.hxt','.4ulite','.fnf','.omanova','.ursa','.hsome','.stk','.ziv','.wyr','.int','.eut')
+VPN_PREFIXES = ('darktunnel://','nm-','slipnet-enc://','slipnet://','ssc://','aura://','bcl://','bee://','btv://','ena://','vel://','eta://','fix://','glory://','marvs://','nur://','mdvpn://','md://','ost://','osv://','ry://','t20://','tik://','tsm://','tx://','ulti://','ultra://','vlx://','wolf://','mmt://','tcx://','tcxtunnelplus://','tunnelcoreplus://','7net://','7netvpn://','ihome://','ihomevpn://','xhypher://','xhyphertunnelpro://','izph://','izphvpnpro://','osp://','osptunnel://','bshield://','bshieldnet://','enz://','enztunnellite://','apnalite://','bdnet://','hxt://','4ulite://','fnf://','omanova://','ursa://','hsome://','zivpn://','wyrvpn://','intvpn://','eut-settings://')
+PATTERNS={"ssh":r"ssh://[^\s]+","vmess":r"vmess://[^\s]+","vless":r"vless://[^\s]+","trojan":r"trojan://[^\s]+","ssr":r"ssr://[^\s]+","ss":r"ss://[^\s]+","hysteria":r"hysteria://[^\s]+","tuic":r"tuic://[^\s]+","http_custom":r"Host:\s*[^\s]+.*(?:Upgrade|Connection|User-Agent).*","payload":r"(?:GET|POST|CONNECT|PUT|HEAD)\s+[^\s]+\s+HTTP/\d\.\d.*","sni":r"(?:SNI|sni|bug)\s*[:=]\s*[^\s]+","ip_port":r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+"}
 
-VPN_PREFIXES = (
-    'darktunnel://','nm-','slipnet-enc://','slipnet://','ssc://',
-    'aura://','bcl://','bee://','btv://','ena://','vel://','eta://',
-    'fix://','glory://','marvs://','nur://','mdvpn://','md://','ost://',
-    'osv://','ry://','t20://','tik://','tsm://','tx://','ulti://',
-    'ultra://','vlx://','wolf://','mmt://',
-    'tcx://','tcxtunnelplus://','tunnelcoreplus://','7net://','7netvpn://',
-    'ihome://','ihomevpn://','xhypher://','xhyphertunnelpro://',
-    'izph://','izphvpnpro://','osp://','osptunnel://','bshield://','bshieldnet://',
-    'enz://','enztunnellite://',
-    'apnalite://','bdnet://','hxt://','4ulite://','fnf://','omanova://',
-    'ursa://','hsome://','zivpn://','wyrvpn://','intvpn://','eut-settings://'
-)
-
-PATTERNS={
-    "ssh":r"ssh://[^\s]+","vmess":r"vmess://[^\s]+","vless":r"vless://[^\s]+",
-    "trojan":r"trojan://[^\s]+","ssr":r"ssr://[^\s]+","ss":r"ss://[^\s]+",
-    "hysteria":r"hysteria://[^\s]+","tuic":r"tuic://[^\s]+",
-    "http_custom":r"Host:\s*[^\s]+.*(?:Upgrade|Connection|User-Agent).*",
-    "payload":r"(?:GET|POST|CONNECT|PUT|HEAD)\s+[^\s]+\s+HTTP/\d\.\d.*",
-    "sni":r"(?:SNI|sni|bug)\s*[:=]\s*[^\s]+",
-    "ip_port":r"\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}:\d+",
-}
-
-RECENT_CHANNELS = []
-
+RECENT_CHANNELS=[]
 def load_recent():
     global RECENT_CHANNELS
     if os.path.exists(RECENT_FILE):
@@ -137,14 +90,14 @@ def save_recent(channel):
         with open(RECENT_FILE,"w") as f: json.dump(RECENT_CHANNELS,f)
 
 def extract_full_text(text):
-    results=[]
+    r=[]
     for line in text.split('\n'):
         line=line.strip()
         if not line or len(line)<5: continue
         if line.startswith(('─','═','━','-','•','#')): continue
         if line in ('.','..','...','⋯'): continue
-        results.append(line)
-    return results
+        r.append(line)
+    return r
 
 def extract_patterns(text):
     found={}
@@ -161,8 +114,8 @@ def detect_vpn_file(filename):
     return False
 
 def detect_vpn_prefix(text):
-    for prefix in VPN_PREFIXES:
-        if prefix.lower() in text.lower(): return True
+    for p in VPN_PREFIXES:
+        if p.lower() in text.lower(): return True
     return False
 
 def bless(t,c):
@@ -171,23 +124,22 @@ def bless(t,c):
     return True
 
 def save_to_file(configs, filename, mode="a"):
-    """Robust file saving with error handling."""
     try:
         Path(filename).parent.mkdir(parents=True,exist_ok=True)
         with open(filename, mode, encoding="utf-8") as f:
             for c in configs:
-                status="BLESSED" if c.get('blessed',True) else "RAW"
+                st="BLESSED" if c.get('blessed',True) else "RAW"
                 ch=c.get('channel','unknown')
                 cfg=c.get('config','')
                 tp=c.get('type','UNKNOWN')
                 ts=c.get('timestamp',datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-                f.write(f"[{ts}] [{tp.upper()}] [{status}] {ch}\n{cfg}\n{'-'*40}\n")
+                f.write(f"[{ts}] [{tp.upper()}] [{st}] {ch}\n{cfg}\n{'-'*40}\n")
         return True
     except Exception as e:
         notify("SAVE ERROR",str(e),R)
         return False
 
-# ── TXT FULL CONTENT EXTRACTOR ──────────
+# ── FILE DOWNLOADER ────────────────────
 async def download_file_full(message, prefix="dl"):
     if not message.media: return None,None
     doc=getattr(message.media,'document',None)
@@ -203,11 +155,10 @@ async def download_file_full(message, prefix="dl"):
             content=f.read()
         os.remove(fpath)
         return fname,content
-    except Exception as e:
-        notify("DOWNLOAD ERROR",str(e),R)
+    except:
         return fname,""
 
-# ── DECRYPT VIA BOT (FIXED) ─────────────
+# ── DECRYPT VIA BOT ─────────────────────
 async def decrypt_via_bot(client, message):
     try:
         notify("DECRYPT","Forwarding to decrypt bot...",Y)
@@ -228,77 +179,49 @@ async def decrypt_via_bot(client, message):
         notify("DECRYPT ERROR",str(e),R)
         return None
 
-# ── SESSION MANAGER ──────────────────────
+# ── SESSION ────────────────────────────
 async def detect_login():
     if not os.path.exists(SESSION_FILE): return False
     try:
-        client=TelegramClient(SESSION_FILE,API_ID,API_HASH)
-        await client.start()
-        await client.disconnect()
+        c=TelegramClient(SESSION_FILE,API_ID,API_HASH)
+        await c.start(); await c.disconnect()
         return True
     except: return False
 
 async def create_session():
     if await detect_login():
-        client=TelegramClient(SESSION_FILE,API_ID,API_HASH)
-        await client.start()
-        me=await client.get_me()
+        c=TelegramClient(SESSION_FILE,API_ID,API_HASH)
+        await c.start(); me=await c.get_me()
         print(f"\n  {G}[WELCOME]{RES} {me.first_name} (@{me.username})")
-        await client.disconnect()
-        return True,me
-    print(f"\n  {Y}[!]{RES} No session found. One-time login required.")
-    phone=input(f"  {Y}[?]{RES} Phone number (+63...): ").strip()
+        await c.disconnect(); return True,me
+    print(f"\n  {Y}[!]{RES} No session found. One-time login.")
+    phone=input(f"  {Y}[?]{RES} Phone (+63...): ").strip()
     if not phone: return False,None
     try:
-        client=TelegramClient(SESSION_FILE,API_ID,API_HASH)
-        await client.start(phone)
-        me=await client.get_me()
+        c=TelegramClient(SESSION_FILE,API_ID,API_HASH)
+        await c.start(phone); me=await c.get_me()
         print(f"  {G}[SUCCESS]{RES} Logged in as: {me.first_name}")
-        await client.disconnect()
-        return True,me
+        await c.disconnect(); return True,me
     except Exception as e:
         print(f"  {R}[ERROR]{RES} {e}")
         if os.path.exists(SESSION_FILE): os.remove(SESSION_FILE)
         return False,None
 
 async def get_client():
-    client=TelegramClient(SESSION_FILE,API_ID,API_HASH)
-    await client.start()
-    return client
+    c=TelegramClient(SESSION_FILE,API_ID,API_HASH)
+    await c.start(); return c
 
 async def logout_session():
     if os.path.exists(SESSION_FILE):
-        os.remove(SESSION_FILE)
-        print(f"  {G}[OK]{RES} Session removed.")
-    else: print(f"  {DIM}No session to remove.{RES}")
-
-# ── TELEGRAM ACTIONS ────────────────────
-async def send_message_to_channel(client, channel, text):
-    try:
-        await client.send_message(channel, text)
-        notify("SENT",f"Message sent to {channel}",G)
-    except Exception as e:
-        notify("SEND ERROR",str(e),R)
-
-async def join_channel(client, channel):
-    try:
-        await client(functions.channels.JoinChannelRequest(channel))
-        notify("JOINED",channel,G)
-    except Exception as e:
-        notify("JOIN ERROR",str(e),R)
-
-async def list_dialogs(client, limit=10):
-    dialogs=[]
-    async for d in client.iter_dialogs(limit=limit):
-        dialogs.append({"name":d.name,"id":d.id,"unread":d.unread_count})
-    return dialogs
+        os.remove(SESSION_FILE); print(f"  {G}[OK]{RES} Session removed.")
+    else: print(f"  {DIM}No session.{RES}")
 
 # ── SCRAPERS ────────────────────────────
 def scrape_public(channel,limit=50):
     notify("PUBLIC",f"Scraping @{channel}",C)
-    spinner("Connecting to public feed",1.0)
+    spinner("Connecting",1.0)
     url=f"https://t.me/s/{channel}"
-    configs=[]; offset=0; total_lines=0
+    configs=[]; offset=0
     while len(configs)<limit:
         try:
             r=requests.get(f"{url}?before={offset}" if offset else url,timeout=10)
@@ -308,9 +231,7 @@ def scrape_public(channel,limit=50):
             for msg in msgs:
                 if len(configs)>=limit: break
                 text=msg.get_text(separator='\n')
-                lines=extract_full_text(text)
-                total_lines+=len(lines)
-                for line in lines:
+                for line in extract_full_text(text):
                     if len(configs)>=limit: break
                     if detect_vpn_prefix(line):
                         configs.append({"type":"VPN_PREFIX","config":line,"blessed":True,"channel":channel,"timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
@@ -320,19 +241,18 @@ def scrape_public(channel,limit=50):
                         for item in items:
                             if len(configs)>=limit: break
                             configs.append({"type":t,"config":item,"blessed":bless(t,item),"channel":channel,"timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
-                progress_bar(len(configs),limit,"Scraping")
             last=msgs[-1].parent.get('data-post','')
             offset=int(last.split('/')[-1]) if last else None
             if not offset: break
         except Exception as e:
             notify("ERROR",str(e),R); break
-    notify("DONE",f"{len(configs)} configs from {total_lines} lines",G)
+    notify("DONE",f"{len(configs)} configs",G)
     return configs
 
 async def scrape_private(client,channel,limit=100):
     notify("PRIVATE",f"Scraping {channel}",C)
-    spinner("Reading messages",1.0)
-    configs=[]; decrypted_configs=[]; total_lines=0
+    spinner("Reading",1.0)
+    configs=[]; dec_configs=[]
     try:
         async for msg in client.iter_messages(channel, limit=limit):
             text=msg.text or ""
@@ -344,12 +264,12 @@ async def scrape_private(client,channel,limit=100):
                         if hasattr(a,'file_name'): fname=a.file_name; break
                     if detect_vpn_file(fname):
                         notify("VPN FILE",fname,M)
-                        decrypted=await decrypt_via_bot(client,msg)
-                        if decrypted:
-                            decrypted_configs.append({"type":"DECRYPTED","config":decrypted,"blessed":True,"channel":channel,"timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
-                            for line in decrypted.split('\n'):
+                        dec=await decrypt_via_bot(client,msg)
+                        if dec:
+                            dec_configs.append({"type":"DECRYPTED","config":dec,"blessed":True,"channel":channel,"timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
+                            for line in dec.split('\n'):
                                 line=line.strip()
-                                if not line or len(line)<5: continue
+                                if not line: continue
                                 if detect_vpn_prefix(line):
                                     configs.append({"type":"VPN","config":line,"blessed":True,"channel":channel,"timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
                                 found=extract_patterns(line)
@@ -359,14 +279,9 @@ async def scrape_private(client,channel,limit=100):
                         continue
                     if doc.mime_type=="text/plain" or fname.endswith(('.txt','.log','.cfg','.conf','.json')):
                         _,content=await download_file_full(msg)
-                        if content:
-                            text+="\n"+content
-                            total_lines+=len(content.split('\n'))
-                            notify("TXT",f"Extracted {len(content)} chars from {fname}",G)
+                        if content: text+="\n"+content; notify("TXT",f"Extracted {fname}",G)
             if not text.strip(): continue
-            lines=extract_full_text(text)
-            total_lines+=len(lines)
-            for line in lines:
+            for line in extract_full_text(text):
                 if detect_vpn_prefix(line):
                     configs.append({"type":"VPN_PREFIX","config":line,"blessed":True,"channel":channel,"timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
                 found=extract_patterns(line)
@@ -374,179 +289,23 @@ async def scrape_private(client,channel,limit=100):
                     for item in items:
                         configs.append({"type":t,"config":item,"blessed":bless(t,item),"channel":channel,"timestamp":datetime.now().strftime("%Y-%m-%d %H:%M:%S")})
     except FloodWaitError as e:
-        notify("FLOOD WAIT",f"Sleeping {e.seconds}s...",Y)
-        await asyncio.sleep(e.seconds)
+        notify("FLOOD",f"Sleeping {e.seconds}s",Y); await asyncio.sleep(e.seconds)
     except Exception as e:
         notify("ERROR",str(e),R)
-    notify("DONE",f"{len(configs)} configs + {len(decrypted_configs)} decrypted from {total_lines} lines",G)
-    return configs, decrypted_configs
+    notify("DONE",f"{len(configs)} configs + {len(dec_configs)} decrypted",G)
+    return configs,dec_configs
 
-# ── VIEW & EXPORT ──────────────────────
-def view_saved(filename,title):
-    if not os.path.exists(filename):
-        print(f"  {DIM}No data in {filename}{RES}")
-        input(f"\n  {DIM}[Enter]{RES}"); return
-    with open(filename,encoding="utf-8") as f:
-        lines=[l.rstrip() for l in f if l.strip()]
-    if not lines:
-        print(f"  {DIM}File empty.{RES}")
-        input(f"\n  {DIM}[Enter]{RES}"); return
-    page,total=0,(len(lines)//2+4)//5
-    while True:
-        os.system('clear')
-        print(f"\n  {BG_C}{W}{BOLD}  {title}  {RES}")
-        print(f"  {C}Page {page+1}/{max(total,1)}  [N]ext [P]rev [Q]uit{RES}\n")
-        start=page*5; end=start+5
-        for i,line in enumerate(lines[start:end],start+1):
-            print(f"  {DIM}[{i}]{RES} {line[:w-10] if tw else line[:80]}")
-        print()
-        cmd=input(f"  {Y}[N/P/Q]{RES} ").strip().lower()
-        if cmd in ('n','next') and page<total-1: page+=1
-        elif cmd in ('p','prev') and page>0: page-=1
-        elif cmd in ('q','quit'): break
-
-def export_logs(filename,title):
-    if not os.path.exists(filename):
-        print(f"  {R}[!]{RES} No data to export.")
-        input(f"\n  {DIM}[Enter]{RES}"); return
-    out=input(f"  {Y}[?]{RES} Export filename [export.json]: ").strip() or "export.json"
-    if not out.endswith('.json'): out+='.json'
-    configs=[]
-    try:
-        with open(filename,encoding="utf-8") as f:
-            for line in f:
-                line=line.strip()
-                if line.startswith('[') and ']' in line:
-                    configs.append({"entry":line})
-                elif line and not line.startswith('-'):
-                    if configs:
-                        configs[-1]["content"]=line
-        with open(out,"w",encoding="utf-8") as jf:
-            json.dump(configs,jf,indent=2,ensure_ascii=False)
-        notify("EXPORT",f"{len(configs)} entries saved to {out}",G)
-    except Exception as e:
-        notify("EXPORT ERROR",str(e),R)
-    input(f"\n  {DIM}[Enter]{RES}")
-
-# ── TELEGRAM ACTIONS MENU ──────────────
-async def telegram_actions_menu():
+# ── LIVE MESSAGE VIEWER (AUTO-SAVE + AUTO-DECRYPT) ──
+async def live_message_viewer(channel):
     client=await get_client()
-    me=await client.get_me()
-    while True:
-        os.system('clear')
-        banner(me.first_name)
-        print(f"  {G}[1]{RES} List Recent Dialogs")
-        print(f"  {G}[2]{RES} Join Channel")
-        print(f"  {G}[3]{RES} Send Message to Channel")
-        print(f"  {G}[4]{RES} View My Profile")
-        print(f"  {G}[0]{RES} Back\n")
-        ch=input(f"  {Y}[?]{RES} Choice: ").strip()
-        if ch=='1':
-            spinner("Fetching dialogs",1.0)
-            dialogs=await list_dialogs(client,15)
-            for i,d in enumerate(dialogs):
-                unread=f"{Y}[{d['unread']}]{RES}" if d['unread'] else ""
-                print(f"  {G}[{i+1}]{RES} {d['name']} {unread}")
-            input(f"\n  {DIM}[Enter]{RES}")
-        elif ch=='2':
-            c=input(f"  {Y}[?]{RES} Channel (@ or link): ").strip()
-            await join_channel(client,c)
-            time.sleep(1)
-        elif ch=='3':
-            c=input(f"  {Y}[?]{RES} Channel: ").strip()
-            txt=input(f"  {Y}[?]{RES} Message: ").strip()
-            await send_message_to_channel(client,c,txt)
-            time.sleep(1)
-        elif ch=='4':
-            print(f"\n  {G}Name:{RES} {me.first_name} {me.last_name or ''}")
-            print(f"  {G}Username:{RES} @{me.username}")
-            print(f"  {G}Phone:{RES} {me.phone}")
-            print(f"  {G}ID:{RES} {me.id}")
-            input(f"\n  {DIM}[Enter]{RES}")
-        elif ch=='0': break
-    await client.disconnect()
-
-# ── MENUS ──────────────────────────────
-def main_menu():
-    print(f"  {G}[1]{RES} Scrape Telegram Channels")
-    print(f"  {G}[2]{RES} View Saved Logs")
-    print(f"  {G}[3]{RES} Export Saved Logs")
-    print(f"  {G}[4]{RES} Recent Channels")
-    print(f"  {G}[5]{RES} Live Message Viewer")
-    print(f"  {G}[6]{RES} Telegram Actions")
-    print(f"  {G}[7]{RES} Change Session (Logout/Login)")
-    print(f"  {G}[0]{RES} Exit\n")
-    return input(f"  {Y}[?]{RES} Choice: ").strip()
-
-async def scrape_menu():
-    os.system('clear')
-    banner(current_user)
-    print(f"  {G}[1]{RES} Public Channel")
-    print(f"  {G}[2]{RES} Private Channel (Session + Decrypt)")
-    print(f"  {G}[3]{RES} Live Monitor (Real-Time)")
-    if RECENT_CHANNELS:
-        print(f"\n  {M}Recent Channels:{RES}")
-        for i,rc in enumerate(RECENT_CHANNELS[:5]):
-            print(f"  {G}[r{i+1}]{RES} {rc}")
-    print(f"\n  {G}[0]{RES} Back\n")
-    ch=input(f"  {Y}[?]{RES} Choice: ").strip()
-    if ch.startswith('r') and ch[1:].isdigit():
-        idx=int(ch[1:])-1
-        if 0<=idx<len(RECENT_CHANNELS):
-            ch_name=RECENT_CHANNELS[idx]
-            save_recent(ch_name)
-            lim=int(input(f"  {Y}[?]{RES} Limit [50]: ") or "50")
-            cfgs=scrape_public(ch_name,lim)
-            if cfgs: save_to_file(cfgs,"blessed_configs.txt")
-    elif ch=='1':
-        ch_name=input(f"  {Y}[?]{RES} Channel: ").replace("@","").replace("t.me/","")
-        save_recent(ch_name)
-        lim=int(input(f"  {Y}[?]{RES} Limit [50]: ") or "50")
-        cfgs=scrape_public(ch_name,lim)
-        if cfgs: save_to_file(cfgs,"blessed_configs.txt")
-    elif ch=='2':
-        ch_name=input(f"  {Y}[?]{RES} Channel: ")
-        save_recent(ch_name)
-        lim=int(input(f"  {Y}[?]{RES} Limit [100]: ") or "100")
-        client=await get_client()
-        cfgs,dec=await scrape_private(client,ch_name,lim)
-        if cfgs: save_to_file(cfgs,"blessed_configs.txt")
-        if dec: save_to_file(dec,"decrypted_configs.txt")
-        await client.disconnect()
-    elif ch=='3':
-        ch_name=input(f"  {Y}[?]{RES} Channel: ")
-        save_recent(ch_name)
-        client=await get_client()
-        @client.on(events.NewMessage(chats=ch_name))
-        async def handler(event):
-            text=event.message.text or ""
-            if event.message.media:
-                doc=getattr(event.message.media,'document',None)
-                if doc:
-                    fname=""
-                    for a in doc.attributes:
-                        if hasattr(a,'file_name'): fname=a.file_name; break
-                    if detect_vpn_file(fname):
-                        _,content=await download_file_full(event.message)
-                        if content: text+="\n"+content
-            if not text.strip(): return
-            for line in extract_full_text(text):
-                found=extract_patterns(line)
-                for t,items in found.items():
-                    for item in items:
-                        notify(f"LIVE {t.upper()}",item[:55],G)
-                        save_to_file([{"type":t,"config":item,"blessed":bless(t,item),"channel":ch_name}],"blessed_configs.txt")
-        await client.run_until_disconnected()
-    input(f"\n  {DIM}[Enter]{RES}")
-
-async def view_live_messages(channel):
-    client=await get_client()
-    notify("LIVE MSG",f"Viewing {channel}",G)
+    notify("LIVE MSG",f"Viewing {channel} | Auto-Save ON | Auto-Decrypt ON",G)
     print(f"  {DIM}[CTRL+C to exit]{RES}\n")
     @client.on(events.NewMessage(chats=channel))
     async def handler(event):
         ts=datetime.now().strftime("%H:%M:%S")
-        text=event.message.text or "[media/file]"
+        text=event.message.text or ""
+        saved_files=[]
+        decrypted_files=[]
         if event.message.media:
             doc=getattr(event.message.media,'document',None)
             if doc:
@@ -554,80 +313,103 @@ async def view_live_messages(channel):
                 for a in doc.attributes:
                     if hasattr(a,'file_name'): fname=a.file_name
                 size=doc.size
+                # Auto-save .txt files
+                if fname.endswith('.txt'):
+                    _,content=await download_file_full(event.message,"live_txt")
+                    if content:
+                        save_to_file([{"type":"TXT_FILE","config":content,"blessed":True,"channel":channel}],"live_txt_saves.txt")
+                        saved_files.append(f"{fname} ({len(content)} chars)")
+                        notify("SAVED TXT",f"{fname} -> live_txt_saves.txt",G)
+                # Auto-detect VPN config files and decrypt
+                if detect_vpn_file(fname):
+                    notify("VPN FILE",fname,M)
+                    decrypted=await decrypt_via_bot(client,event.message)
+                    if decrypted:
+                        save_to_file([{"type":"DECRYPTED","config":decrypted,"blessed":True,"channel":channel}],"decrypted_configs.txt")
+                        decrypted_files.append(fname)
+                        notify("DECRYPTED",f"{fname} -> decrypted_configs.txt",G)
+                # Display file info
                 text=f"[FILE] {fname} ({size} bytes)"
-        for line in text.split('\n')[:5]:
-            print(f"  [{C}{ts}{RES}] {DIM}{line[:90]}{RES}")
-        print(f"  {C}{'─'*40}{RES}")
+        if text.strip():
+            for line in text.split('\n')[:5]:
+                print(f"  [{C}{ts}{RES}] {DIM}{line[:90]}{RES}")
+        if saved_files:
+            for sf in saved_files:
+                print(f"  [{G}SAVED{RES}] {sf}")
+        if decrypted_files:
+            for df in decrypted_files:
+                print(f"  [{M}DECRYPTED{RES}] {df}")
+        print(f"  {C}{'─'*tw()}{RES}")
     await client.run_until_disconnected()
 
-current_user=""
+# ── LIVE MONITOR ────────────────────────
+async def live_monitor(channel):
+    client=await get_client()
+    notify("LIVE",f"Watching {channel}",G)
+    @client.on(events.NewMessage(chats=channel))
+    async def handler(event):
+        text=event.message.text or ""
+        if event.message.media:
+            doc=getattr(event.message.media,'document',None)
+            if doc:
+                fname=""
+                for a in doc.attributes:
+                    if hasattr(a,'file_name'): fname=a.file_name; break
+                if detect_vpn_file(fname):
+                    dec=await decrypt_via_bot(client,event.message)
+                    if dec: text+="\n"+dec; notify("DECRYPTED",fname,G)
+                elif fname.endswith('.txt'):
+                    _,content=await download_file_full(event.message)
+                    if content: text+="\n"+content
+        if not text.strip(): return
+        for line in extract_full_text(text):
+            found=extract_patterns(line)
+            for t,items in found.items():
+                for item in items:
+                    notify(f"LIVE {t.upper()}",item[:55],G)
+                    save_to_file([{"type":t,"config":item,"blessed":bless(t,item),"channel":channel}],"blessed_configs.txt")
+    await client.run_until_disconnected()
 
-async def main():
-    global current_user
-    load_recent()
-    if not await detect_login():
-        ok,me=await create_session()
-        if not ok:
-            print(f"  {R}[FATAL]{RES} Login required."); sys.exit(1)
-        current_user=me.first_name if me else ""
-    else:
-        client=TelegramClient(SESSION_FILE,API_ID,API_HASH)
-        await client.start()
-        me=await client.get_me()
-        current_user=me.first_name if me else ""
-        print(f"\n  {G}[WELCOME]{RES} {me.first_name} (@{me.username})")
-        await client.disconnect()
-        time.sleep(1.5)
-    
+# ── VIEW / EXPORT ──────────────────────
+def view_saved(filename,title):
+    if not os.path.exists(filename):
+        print(f"  {DIM}No data.{RES}"); input(f"\n  {DIM}[Enter]{RES}"); return
+    with open(filename,encoding="utf-8") as f:
+        lines=[l.rstrip() for l in f if l.strip()]
+    if not lines:
+        print(f"  {DIM}Empty.{RES}"); input(f"\n  {DIM}[Enter]{RES}"); return
+    page,total=0,(len(lines)//2+4)//5
     while True:
         os.system('clear')
-        banner(current_user)
-        choice=main_menu()
-        if choice=='0':
-            pulse_glow(" GOODBYE! CONFIGS SAVED. ",3,0.3); break
-        elif choice=='1': await scrape_menu()
-        elif choice=='2':
-            os.system('clear')
-            banner(current_user)
-            print(f"  {G}[1]{RES} All Blessed Configs")
-            print(f"  {G}[2]{RES} Decrypted Configs")
-            print(f"  {G}[3]{RES} VPN Protocols")
-            print(f"  {G}[0]{RES} Back\n")
-            v=input(f"  {Y}[?]{RES} Choice: ").strip()
-            if v=='1': view_saved("blessed_configs.txt","ALL BLESSED CONFIGS")
-            elif v=='2': view_saved("decrypted_configs.txt","DECRYPTED CONFIGS")
-            elif v=='3': view_saved("vpn_protocols.txt","VPN PROTOCOLS")
-        elif choice=='3':
-            os.system('clear')
-            banner(current_user)
-            print(f"  {G}[1]{RES} Export Blessed Configs")
-            print(f"  {G}[2]{RES} Export Decrypted Configs")
-            print(f"  {G}[3]{RES} Export VPN Protocols")
-            print(f"  {G}[0]{RES} Back\n")
-            e=input(f"  {Y}[?]{RES} Choice: ").strip()
-            if e=='1': export_logs("blessed_configs.txt","BLESSED CONFIGS")
-            elif e=='2': export_logs("decrypted_configs.txt","DECRYPTED CONFIGS")
-            elif e=='3': export_logs("vpn_protocols.txt","VPN PROTOCOLS")
-        elif choice=='4':
-            os.system('clear')
-            banner(current_user)
-            if RECENT_CHANNELS:
-                print(f"  {M}Recent Channels:{RES}\n")
-                for i,rc in enumerate(RECENT_CHANNELS):
-                    print(f"  {G}[{i+1}]{RES} {rc}")
-            else: print(f"  {DIM}No recent channels.{RES}")
-            input(f"\n  {DIM}[Enter]{RES}")
-        elif choice=='5':
-            c=input(f"  {Y}[?]{RES} Channel: ").strip()
-            await view_live_messages(c)
-        elif choice=='6': await telegram_actions_menu()
-        elif choice=='7':
-            await logout_session()
-            ok,me=await create_session()
-            if ok: current_user=me.first_name if me else ""
-        else:
-            print(f"  {R}[!]{RES} Invalid"); time.sleep(0.5)
+        print(f"\n  {BG_C}{W}{BOLD}  {title}  {RES}")
+        print(f"  {C}Page {page+1}/{max(total,1)}  [N]ext [P]rev [Q]uit{RES}\n")
+        for i,line in enumerate(lines[page*5:(page+1)*5],page*5+1):
+            print(f"  {DIM}[{i}]{RES} {line[:90]}")
+        cmd=input(f"\n  {Y}[N/P/Q]{RES} ").strip().lower()
+        if cmd in ('n','next') and page<total-1: page+=1
+        elif cmd in ('p','prev') and page>0: page-=1
+        elif cmd in ('q','quit'): break
 
-if __name__=="__main__":
-    try: asyncio.run(main())
-    except KeyboardInterrupt: print(f"\n  {M}[STOPPED]{RES}\n"); sys.exit(0)
+def export_logs(filename,title):
+    if not os.path.exists(filename):
+        print(f"  {R}[!]{RES} No data."); input(f"\n  {DIM}[Enter]{RES}"); return
+    out=input(f"  {Y}[?]{RES} Filename [export.json]: ").strip() or "export.json"
+    if not out.endswith('.json'): out+='.json'
+    configs=[]
+    try:
+        with open(filename,encoding="utf-8") as f:
+            for line in f:
+                line=line.strip()
+                if line.startswith('['): configs.append({"entry":line})
+                elif line and not line.startswith('-') and configs:
+                    configs[-1]["content"]=line
+        with open(out,"w",encoding="utf-8") as jf: json.dump(configs,jf,indent=2,ensure_ascii=False)
+        notify("EXPORT",f"{len(configs)} entries -> {out}",G)
+    except Exception as e:
+        notify("EXPORT ERROR",str(e),R)
+    input(f"\n  {DIM}[Enter]{RES}")
+
+# ── FULL TELEGRAM ACTIONS ──────────────
+async def telegram_actions_menu():
+    client=await get_client()
+    me=await c
